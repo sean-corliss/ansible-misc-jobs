@@ -1,0 +1,3 @@
+download_retries: 3
+download_delay: 10
+dest_dir: /tmp
