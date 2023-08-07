@@ -1,0 +1,106 @@
+- hosts: localhost
+  vars:
+    nvim_urls:
+      Darwin: https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz
+      Linux: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
+
+  roles:
+    - role: download_file
+      vars:
+        download_file_url: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
+        download_file_checksum_url: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz.sha256sum
+        download_file_checksum_method: sha256
+
+  tasks:
+    - name: Check architecture
+      set_fact:
+        arch: "{{ ansible_architecture }}"
+      failed_when: arch == "arm64" or arch == "aarch64"
+
+    - name: Set nvim url based on OS
+      set_fact:
+        nvim_url: "{{ nvim_urls[ansible_system] }}"
+
+    - name: Assert nvim URL is defined
+      assert:
+        that:
+          - nvim_url is defined
+          - nvim_url != ''
+        fail_msg: "nvim_url is undefined or empty"
+
+    - name: Check if nvim exists and is executable
+      stat:
+        path: /usr/local/bin/nvim
+      register: nvim_st
+
+    - name: Set nvim_exists variable
+      set_fact:
+        nvim_exists: "{{ nvim_st.stat.exists and nvim_st.stat.executable }}"
+
+    - debug: var=nvim_exists
+
+    - block:
+        - name: Get nvim version
+          command: /usr/local/bin/nvim --version
+          changed_when: false
+          failed_when: false
+          ignore_errors: true
+          register: nvim_version_result
+          when: nvim_exists
+
+        - name: Set nvim_version
+          set_fact:
+            nvim_version: "{{ nvim_version_result.stdout | regex_search('NVIM v\\S+') | replace('NVIM v', '')}}"
+          failed_when: false
+
+        - debug: var=nvim_version
+
+        - name: Fail if nvim version [{{nvim_version}}] is above [{{nvim_min_version}}]
+          set_fact:
+            current_version_is_ok: true
+          # fail:
+          #   msg: "Installed nvim version {{nvim_version}} is too low than {{nvim_min_version}}"
+          when: nvim_exists and nvim_version is version(nvim_min_version, '>=')
+
+      when:
+        - nvim_exists  |default(false)|bool == true
+
+    - block:
+        - name: download_file
+          include_role:
+            name: download_file
+
+          vars:
+            download_file_url: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
+            download_file_checksum_url: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz.sha256sum
+            download_file_checksum_method: sha256
+
+        - debug: var=dest_file
+
+        - name: Extract nvim
+          unarchive:
+            src: "{{ dest_file }}"
+            dest: /usr/local/
+
+        - name: find path
+          shell: |
+            os=$(uname -o)
+            if [[ "$os" == "Darwin" ]]; then
+              bin=$(find /usr/local -type f -perm +111 -name nvim -print  |head -1)
+            else
+              bin=$(find /usr/local -type f -executable -name nvim -print |head -1)
+            fi
+            [[ -x "$bin" ]] && ln -sf $bin /usr/local/bin/
+          args:
+            executable: /bin/bash
+
+        - name: show final version
+          shell: /usr/local/bin/nvim --version
+          register: nvim_version
+
+        - name: show versionvar
+          debug:
+            msg: "{{ nvim_version.stdout.split('\n')}}"
+
+      when:
+        - current_version_is_ok |default(false)|bool == false
