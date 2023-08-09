@@ -1,3 +1,38 @@
-- name: hello
+- name: Backup old config paths, if any
   shell: |
-    echo deploy...
+    if [ -d {{ item }} ]; then
+      mv -fv {{ item }} {{ item }}-$(date +"%Y%m%d-%H%M").bak
+    fi
+  args:
+    executable: /bin/bash
+  with_items:
+    - ~/.config/nvim
+    - ~/.local/share/nvim
+    - ~/.local/state/nvim
+    - ~/.cache/nvim
+  register: backup_nvim_info
+
+- name: Check if git is installed
+  ansible.builtin.command: which git
+  register: git_exists
+  changed_when: false
+  failed_when: false
+
+- name: Install git if needed
+  ansible.builtin.package:
+    name: git
+    state: present
+  when: not git_exists.stdout
+
+- name: Clone LazyVim repo
+  ansible.builtin.git:
+    repo: https://github.com/LazyVim/starter
+    dest: ~/.config/nvim
+    version: main
+
+# checker = { enabled = true }
+- name: Replace line in lazy.lua
+  ansible.builtin.replace:
+    path: ~/.config/nvim/lua/config/lazy.lua
+    regexp: 'checker = \{ enabled = true \}'
+    replace: 'checker = { enabled = false }'

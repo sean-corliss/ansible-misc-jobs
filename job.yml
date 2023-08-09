@@ -1,0 +1,10 @@
+- hosts: all
+  vars:
+    nvim_urls:
+      Darwin: https://github.com/neovim/neovim/releases/download/nightly/nvim-macos.tar.gz
+      Linux: https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
+
+  roles:
+    - nvim/install
+    # - nvim/deploy
+
