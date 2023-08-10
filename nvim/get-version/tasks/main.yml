@@ -1,0 +1,31 @@
+- name: set default fact
+  set_fact:
+    nvim_version: ""
+
+- name: Check if nvim exists and is executable
+  stat:
+    path: /usr/local/bin/nvim
+  register: nvim_st
+
+- name: Set nvim_exists variable
+  set_fact:
+    nvim_exists: "{{ nvim_st.stat.exists and nvim_st.stat.executable }}"
+
+- block:
+    - name: Get nvim version
+      command: /usr/local/bin/nvim --version
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+      register: nvim_version_result
+
+    - name: Set nvim_version
+      set_fact:
+        nvim_version: "{{ nvim_version_result.stdout | regex_search('NVIM v\\S+') | replace('NVIM ', '')}}"
+      failed_when: false
+
+  when: nvim_exists
+
+- debug: var=nvim_exists
+- debug: var=nvim_version
+
