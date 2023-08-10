@@ -4,20 +4,20 @@
     return_content: yes
   register: checksum_result
 
-- debug: var=checksum_result
-
+# - debug: var=checksum_result
+#
 - name: set cs
   set_fact:
     cs: "{{checksum_result.content.split(' ')[0] }}" 
 
-- debug: var=cs
-
+# - debug: var=cs
+#
 - name: Set checksum method
   set_fact:
     checksum_method: "{{ download_file_checksum_method if download_file_checksum_method is defined else download_file_checksum_url | splitext | last }}"
 
-- debug: var=checksum_method
-
+# - debug: var=checksum_method
+#
 - name: Set checksum
   set_fact:
     checksum: "{{ cs }}"
